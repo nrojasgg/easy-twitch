@@ -1,0 +1,763 @@
+<!doctype html>
+<html style="background: transparent">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+        <title>Twitch Chat Overlay</title>
+        <style>
+            :root {
+                --bg-primary: rgba(80, 80, 80, 0.4);
+                --bg-secondary: rgba(60, 60, 60, 0.5);
+                --bg-tertiary: rgba(60, 60, 60, 0.9);
+                --text-primary: #cccccc;
+                --text-secondary: #888;
+                --border-color: rgba(255, 255, 255, 0.1);
+                --btn-bg: rgba(100, 100, 100, 0.6);
+                --btn-close-bg: rgba(180, 60, 60, 0.7);
+                --btn-close-hover: rgba(220, 60, 60, 0.9);
+                --btn-pin-active-bg: rgba(255, 200, 0, 0.8);
+                --input-bg: rgba(60, 60, 60, 0.9);
+                --input-border: rgba(100, 100, 100, 0.5);
+                --welcome-bg: rgba(30, 30, 30, 0.95);
+                --user-item-bg: rgba(60, 60, 60, 0.5);
+                --user-item-hover: rgba(80, 80, 80, 0.6);
+            }
+
+            :root.light {
+                --bg-primary: rgba(200, 200, 200, 0.4);
+                --bg-secondary: rgba(180, 180, 180, 0.5);
+                --bg-tertiary: rgba(180, 180, 180, 0.9);
+                --text-primary: #333333;
+                --text-secondary: #666;
+                --border-color: rgba(0, 0, 0, 0.1);
+                --btn-bg: rgba(150, 150, 150, 0.6);
+                --btn-close-bg: rgba(180, 60, 60, 0.7);
+                --btn-close-hover: rgba(220, 60, 60, 0.9);
+                --btn-pin-active-bg: rgba(255, 200, 0, 0.8);
+                --input-bg: rgba(220, 220, 220, 0.9);
+                --input-border: rgba(100, 100, 100, 0.5);
+                --welcome-bg: rgba(220, 220, 220, 0.95);
+                --user-item-bg: rgba(200, 200, 200, 0.5);
+                --user-item-hover: rgba(180, 180, 180, 0.7);
+            }
+
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            html,
+            body {
+                background: transparent !important;
+                height: 100%;
+                overflow: hidden;
+            }
+
+            body {
+                display: flex;
+                flex-direction: column;
+            }
+
+            .drag-region {
+                -webkit-app-region: drag;
+                height: 32px;
+                background: var(--bg-primary);
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 8px;
+                flex-shrink: 0;
+                border-bottom: 1px solid var(--border-color);
+            }
+
+            .drag-region .title {
+                color: var(--text-primary);
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    sans-serif;
+                font-size: 12px;
+                font-weight: 600;
+                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+            }
+
+            :root.light .drag-region .title {
+                text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+            }
+
+            .drag-region .controls {
+                display: flex;
+                gap: 8px;
+                -webkit-app-region: no-drag;
+            }
+
+            .drag-region button {
+                width: 22px;
+                height: 22px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: background 0.2s, transform 0.1s;
+            }
+
+            .drag-region button:active {
+                transform: scale(0.95);
+            }
+
+            .drag-region button:hover {
+                filter: brightness(1.2);
+            }
+
+            .drag-region .btn-close {
+                background: var(--btn-close-bg);
+                color: #ddd;
+            }
+
+            .drag-region .btn-close:hover {
+                background: var(--btn-close-hover);
+            }
+
+            .drag-region .btn-pin {
+                background: var(--btn-bg);
+                color: var(--text-secondary);
+            }
+
+            .drag-region .btn-pin.active {
+                background: var(--btn-pin-active-bg);
+                color: #333;
+            }
+
+            .drag-region .btn-contrast {
+                background: var(--btn-bg);
+                color: var(--text-secondary);
+            }
+
+            .drag-region .btn-contrast.active {
+                background: var(--btn-pin-active-bg);
+                color: #333;
+            }
+
+            .drag-region .btn-theme {
+                background: var(--btn-bg);
+                color: var(--text-secondary);
+            }
+
+            .drag-region .btn-theme.active {
+                background: var(--btn-pin-active-bg);
+                color: #333;
+            }
+
+            .btn-contrast svg {
+                width: 12px;
+                height: 12px;
+                fill: currentColor;
+            }
+
+            .drag-region .btn-back {
+                background: rgba(100, 100, 100, 0.6);
+                color: #ccc;
+                margin-right: 6px;
+                -webkit-app-region: no-drag;
+            }
+
+            .drag-region .btn-back svg {
+                width: 14px;
+                height: 14px;
+                fill: currentColor;
+            }
+
+            .btn-pin svg {
+                width: 12px;
+                height: 12px;
+                fill: currentColor;
+            }
+
+            .drag-region .btn-theme {
+                background: rgba(100, 100, 100, 0.6);
+                color: #888;
+            }
+
+            .drag-region .btn-theme:hover {
+                filter: brightness(1.2);
+            }
+
+            .drag-region .btn-theme.active {
+                background: rgba(255, 200, 0, 0.8);
+                color: #333;
+            }
+
+            .btn-theme svg {
+                width: 12px;
+                height: 12px;
+                fill: currentColor;
+            }
+
+            .chat-wrapper {
+                flex: 1;
+                position: relative;
+                overflow: hidden;
+                clip-path: inset(0px 0 0 0);
+            }
+
+            .chat-wrapper webview {
+                position: absolute;
+                top: -45px;
+                left: 0;
+                width: 100%;
+                height: calc(100% + 45px);
+                border: none;
+            }
+
+            .welcome-screen {
+                display: flex;
+                flex-direction: column;
+                height: calc(100% - 32px);
+                padding: 15px;
+                gap: 10px;
+                background: var(--welcome-bg);
+            }
+
+            .welcome-input-row {
+                display: flex;
+                flex-direction: row;
+                gap: 8px;
+                justify-content: center;
+            }
+
+            .welcome-screen input {
+                background: var(--input-bg);
+                border: 1px solid var(--input-border);
+                border-radius: 6px;
+                padding: 10px 14px;
+                color: var(--text-primary);
+                font-size: 14px;
+                width: 200px;
+                outline: none;
+                transition: border-color 0.2s;
+            }
+
+            .welcome-screen input:focus {
+                border-color: rgba(145, 70, 255, 0.6);
+            }
+
+            .welcome-screen input::placeholder {
+                color: var(--text-secondary);
+            }
+
+            .welcome-screen .btn-go {
+                background: rgba(145, 70, 255, 0.8);
+                border: none;
+                border-radius: 6px;
+                padding: 10px 16px;
+                color: #fff;
+                font-size: 16px;
+                cursor: pointer;
+                transition: background 0.2s, transform 0.1s;
+            }
+
+            .welcome-screen .btn-go:hover {
+                background: rgba(145, 70, 255, 1);
+            }
+
+            .welcome-screen .btn-go:active {
+                transform: scale(0.97);
+            }
+
+            .user-list {
+                flex: 1;
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+            }
+
+            .user-list::-webkit-scrollbar {
+                width: 6px;
+            }
+
+            .user-list::-webkit-scrollbar-track {
+                background: transparent;
+            }
+
+            .user-list::-webkit-scrollbar-thumb {
+                background: rgba(100, 100, 100, 0.5);
+                border-radius: 3px;
+            }
+
+            .user-section-title {
+                color: #888;
+                font-size: 11px;
+                font-weight: 600;
+                text-transform: uppercase;
+                padding: 5px 5px 3px;
+                letter-spacing: 0.5px;
+            }
+
+            .user-item {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                padding: 6px 8px;
+                background: rgba(60, 60, 60, 0.5);
+                border-radius: 6px;
+                transition: background 0.15s;
+            }
+
+            .user-item:hover {
+                background: rgba(80, 80, 80, 0.6);
+            }
+
+            .user-item .btn-fav {
+                background: none;
+                border: none;
+                color: #666;
+                cursor: pointer;
+                font-size: 14px;
+                padding: 2px;
+                line-height: 1;
+                transition: color 0.15s, transform 0.1s;
+            }
+
+            .user-item .btn-fav:hover {
+                transform: scale(1.2);
+            }
+
+            .user-item .btn-fav.active {
+                color: #ffc107;
+            }
+
+            .user-item .user-name {
+                flex: 1;
+                color: #ccc;
+                font-size: 13px;
+                cursor: pointer;
+            }
+
+            .user-item .user-name:hover {
+                color: #fff;
+            }
+
+            .user-item .btn-remove {
+                background: none;
+                border: none;
+                color: #666;
+                cursor: pointer;
+                font-size: 14px;
+                padding: 2px;
+                line-height: 1;
+                transition: color 0.15s;
+            }
+
+            .user-item .btn-remove:hover {
+                color: #f44336;
+            }
+
+            .chat-wrapper.hidden {
+                display: none;
+            }
+
+            .drag-region.hidden {
+                display: none;
+            }
+
+            .welcome-screen.hidden {
+                display: none;
+            }
+
+            .btn-back.hidden {
+                display: none;
+            }
+
+            .text-dark .title,
+            .text-dark .user-name,
+            .text-dark .user-section-title,
+            .text-dark .welcome-screen input,
+            .text-dark .welcome-screen .btn-go {
+                color: #222 !important;
+                text-shadow: none !important;
+            }
+
+            .text-dark .welcome-screen input {
+                background: rgba(200, 200, 200, 0.9) !important;
+                border-color: rgba(150, 150, 150, 0.5) !important;
+            }
+
+            .text-dark .user-item {
+                background: rgba(200, 200, 200, 0.5) !important;
+            }
+
+            .text-dark .user-item:hover {
+                background: rgba(200, 200, 200, 0.7) !important;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="drag-region" id="dragRegion">
+            <button class="btn-back hidden" id="backBtn" title="Volver">
+                <svg viewBox="0 0 24 24">
+                    <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z" fill="currentColor"/>
+                </svg>
+            </button>
+            <span class="title" id="title">Twitch Chat Overlay</span>
+            <div class="controls">
+                <button
+                    class="btn-pin active"
+                    id="pinBtn"
+                    title="Siempre visible (Pin)"
+                >
+                    <svg class="icon-pin" viewBox="0 0 24 24">
+                        <path d="M16 12V4h-2v4H8l4 8 4-8h-2V4h2v8z"/>
+                        <circle cx="12" cy="3" r="2"/>
+                    </svg>
+                </button>
+                <button class="btn-theme" id="themeBtn" title="Cambiar modo">
+                    <svg class="icon-theme" viewBox="0 0 24 24">
+                        <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/>
+                    </svg>
+                </button>
+                <button class="btn-close" id="closeBtn" title="Close">×</button>
+            </div>
+        </div>
+        <div class="chat-wrapper hidden" id="chatWrapper">
+            <webview
+                id="chat"
+                partition="persist:twitch-chat"
+                allowpopups
+            ></webview>
+        </div>
+        <div class="welcome-screen" id="welcomeScreen">
+            <div class="welcome-input-row">
+                <input type="text" id="userInput" placeholder="Escribe el usuario" autocomplete="off" autofocus/>
+                <button class="btn-go" id="startBtn">→</button>
+            </div>
+            <div class="user-list" id="userList"></div>
+        </div>
+
+        <script>
+            const webview = document.getElementById("chat");
+            const pinBtn = document.getElementById("pinBtn");
+            const closeBtn = document.getElementById("closeBtn");
+            const backBtn = document.getElementById("backBtn");
+            const themeBtn = document.getElementById("themeBtn");
+            const title = document.getElementById("title");
+            const welcomeScreen = document.getElementById("welcomeScreen");
+            const chatWrapper = document.getElementById("chatWrapper");
+            const dragRegion = document.getElementById("dragRegion");
+            const userInput = document.getElementById("userInput");
+            const startBtn = document.getElementById("startBtn");
+            const userList = document.getElementById("userList");
+
+            const params = new URLSearchParams(window.location.search);
+            const initialUser = params.get("user");
+
+            async function renderUserList() {
+                const users = await window.electronAPI.getUsers();
+                userList.innerHTML = "";
+
+                const favorites = users.filter(u => u.isFavorite);
+                const recent = users.filter(u => !u.isFavorite);
+
+                if (favorites.length > 0) {
+                    const favTitle = document.createElement("div");
+                    favTitle.className = "user-section-title";
+                    favTitle.textContent = "Favoritos";
+                    userList.appendChild(favTitle);
+
+                    favorites.forEach(user => {
+                        userList.appendChild(createUserItem(user));
+                    });
+                }
+
+                if (recent.length > 0) {
+                    const recentTitle = document.createElement("div");
+                    recentTitle.className = "user-section-title";
+                    recentTitle.textContent = "Recientes";
+                    userList.appendChild(recentTitle);
+
+                    recent.forEach(user => {
+                        userList.appendChild(createUserItem(user));
+                    });
+                }
+            }
+
+            function createUserItem(user) {
+                const item = document.createElement("div");
+                item.className = "user-item";
+                item.innerHTML = `
+                    <button class="btn-fav ${user.isFavorite ? 'active' : ''}" title="${user.isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}">★</button>
+                    <span class="user-name">${user.name}</span>
+                    <button class="btn-remove" title="Eliminar">×</button>
+                `;
+
+                item.querySelector(".btn-fav").addEventListener("click", async (e) => {
+                    e.stopPropagation();
+                    await window.electronAPI.toggleFavorite(user.name);
+                    renderUserList();
+                });
+
+                item.querySelector(".user-name").addEventListener("click", () => {
+                    loadChat(user.name);
+                });
+
+                item.querySelector(".btn-remove").addEventListener("click", async (e) => {
+                    e.stopPropagation();
+                    await window.electronAPI.removeUser(user.name);
+                    renderUserList();
+                });
+
+                return item;
+            }
+
+            async function loadChat(user) {
+                await window.electronAPI.addUser(user);
+                window.electronAPI.openStreams(user);
+            }
+
+            window.electronAPI.onStreamsOpened((user) => {
+                title.textContent = `Chat de ${user}`;
+                welcomeScreen.classList.add("hidden");
+                chatWrapper.classList.remove("hidden");
+                backBtn.classList.remove("hidden");
+                webview.src = `https://www.twitch.tv/popout/${user}/chat?display_version=2`;
+            });
+
+            window.electronAPI.onStreamsClosed(() => {
+                title.textContent = "Twitch Chat Overlay";
+                welcomeScreen.classList.remove("hidden");
+                chatWrapper.classList.add("hidden");
+                backBtn.classList.add("hidden");
+                userInput.value = "";
+                userInput.focus();
+                renderUserList();
+            });
+
+            async function showWelcome() {
+                window.electronAPI.closeStreams();
+            }
+
+            let currentIsDarkMode = true;
+
+            function applyTheme(isDark) {
+                currentIsDarkMode = isDark;
+                if (isDark) {
+                    themeBtn.classList.remove("active");
+                    dragRegion.classList.remove("text-dark");
+                    welcomeScreen.classList.remove("text-dark");
+                } else {
+                    themeBtn.classList.add("active");
+                    dragRegion.classList.add("text-dark");
+                    welcomeScreen.classList.add("text-dark");
+                }
+                injectChatTheme();
+            }
+
+            window.electronAPI.onThemeChanged((isDark) => {
+                applyTheme(isDark);
+            });
+
+            if (initialUser && initialUser.trim().length > 0) {
+                loadChat(initialUser.trim());
+            } else {
+                showWelcome();
+            }
+
+            userInput.addEventListener("focus", () => {
+                userInput.select();
+            });
+
+            startBtn.addEventListener("click", () => {
+                const user = userInput.value.trim();
+                if (user) {
+                    loadChat(user);
+                }
+            });
+
+            userInput.addEventListener("keypress", (e) => {
+                if (e.key === "Enter") {
+                    const user = userInput.value.trim();
+                    if (user) {
+                        loadChat(user);
+                    }
+                }
+            });
+
+            webview.addEventListener("console-msg", (e) =>
+                console.log("WEBVIEW:", e.message),
+            );
+            webview.addEventListener("did-fail-load", (e) =>
+                console.error("FAILED:", e),
+            );
+
+            pinBtn.addEventListener("click", () =>
+                window.electronAPI.togglePin(),
+            );
+
+            function injectChatTheme() {
+                if (!webview || webview.src === "about:blank") return;
+                const textColor = currentIsDarkMode ? "#ffffff" : "#000000";
+                const shadow = currentIsDarkMode
+                    ? "0 0 2px rgba(0, 0, 0, 0.95), 0 0 4px rgba(0, 0, 0, 0.8), 1px 1px 2px rgba(0, 0, 0, 0.9)"
+                    : "0 0 2px rgba(255, 255, 255, 0.5), 0 0 4px rgba(255, 255, 255, 0.3)";
+
+                webview.insertCSS(`
+                    .chat-message__content,
+                    .chat-line__message-body,
+                    .chat-line__username,
+                    .chat-line__message,
+                    .chat-message,
+                    .chat-line__no-state,
+                    .chat-line__status {
+                        color: ${textColor} !important;
+                        text-shadow: ${shadow} !important;
+                    }
+                `).catch(() => {});
+            }
+
+            themeBtn.addEventListener("click", () => {
+                window.electronAPI.toggleTheme();
+            });
+
+            closeBtn.addEventListener("click", () =>
+                window.electronAPI.close(),
+            );
+            backBtn.addEventListener("click", () => {
+                showWelcome();
+            });
+            window.electronAPI.onPinChanged((isOnTop) => {
+                pinBtn.classList.toggle("active", isOnTop);
+                const icon = pinBtn.querySelector("svg");
+                if (isOnTop) {
+                    icon.innerHTML = `
+                        <path d="M16 12V4h-2v4H8l4 8 4-8h-2V4h2v8z"/>
+                        <circle cx="12" cy="3" r="2"/>
+                    `;
+                } else {
+                    icon.innerHTML = `
+                        <path d="M12 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM8 6h8l3 6-3 6H8l-3-6z" fill="none" stroke="currentColor" stroke-width="2"/>
+                    `;
+                }
+            });
+
+            webview.addEventListener("did-finish-load", () => {
+                injectChatTheme();
+
+                const bttvScript = `
+                    (function() {
+                        if (window.BTTV_CHAT_LOADED) return;
+                        window.BTTV_CHAT_LOADED = true;
+                        var s = document.createElement('script');
+                        s.src = 'https://cdn.betterttv.net/script/script.min.js';
+                        document.head.appendChild(s);
+                    })();
+                `;
+
+                const ffzScript = `
+                    (function() {
+                        if (window.FFZ_CHAT_LOADED) return;
+                        window.FFZ_CHAT_LOADED = true;
+                        var s = document.createElement('script');
+                        s.src = 'https://cdn.frankerfacez.com/script/script.min.js';
+                        document.head.appendChild(s);
+                    })();
+                `;
+
+                webview.executeJavaScript(bttvScript);
+                webview.executeJavaScript(ffzScript);
+
+                webview.insertCSS(`
+        html, body {
+          background: transparent !important;
+        }
+
+        .chat-room,
+        .tw-root--theme-dark,
+        .chat-container,
+        .chat-page,
+        .stream-chat-root,
+        .chat-layout,
+        .chat-room__container,
+        .persistent-room-content,
+        [data-a-target="chat-scroller"],
+        .scrollable-trigger,
+        .chat-scroller,
+        .chat-scroller__message-container,
+        .chat-message-list,
+        .chat-message-list--default,
+        .chat-message,
+        .chat-line__message,
+        .chat-line__no-state,
+        .chat-line__status,
+        .chat-line__highlight,
+        .chat-line__message--action,
+        .chat-message__content,
+        .chat-line__message-body,
+        .chat-line__username,
+        .chat-badge,
+        .chat-badge-group,
+        .chat-line__badges,
+        .ember-chat .chat-container,
+        .chat-content,
+        .chat-line__message--deleted,
+        .chat-header,
+        .chat-room__header,
+        [data-a-target="chat-header"],
+        .stream-chat-header {
+          background: transparent !important;
+        }
+
+        .chat-room__header,
+        .stream-chat-header {
+          display: none !important;
+        }
+
+        .chat-message__content,
+        .chat-line__message-body,
+        .chat-line__username {
+          background: transparent !important;
+          text-shadow:
+            0 0 2px rgba(0, 0, 0, 0.95),
+            0 0 4px rgba(0, 0, 0, 0.8),
+            1px 1px 2px rgba(0, 0, 0, 0.9) !important;
+        }
+
+        * {
+          background-color: transparent !important;
+          border-color: rgba(255, 255, 255, 0.05) !important;
+        }
+
+        ::-webkit-scrollbar,
+        .scrollbar-drive,
+        .simplebar-scrollbar {
+          display: none !important;
+        }
+
+        .bttv-emote,
+        .ffz-emote,
+        .seventv-emote,
+        [data-a-target="emote-item"] {
+          background: transparent !important;
+        }
+      `);
+
+                webview.executeJavaScript(`
+        (function() {
+          const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+              mutation.addedNodes.forEach((node) => {
+                if (node.nodeType === 1 && node.style) {
+                  node.style.background = 'transparent';
+                }
+              });
+            });
+          });
+          observer.observe(document.body, { childList: true, subtree: true });
+        })();
+      `);
+            });
+        </script>
+    </body>
+</html>

@@ -1,0 +1,244 @@
+const { app, BrowserWindow, ipcMain, screen } = require('electron');
+const path = require('path');
+const fs = require('fs');
+
+const userDataPath = path.join(app.getPath('userData'), 'users.json');
+
+function loadUsers() {
+  try {
+    if (fs.existsSync(userDataPath)) {
+      return JSON.parse(fs.readFileSync(userDataPath, 'utf-8'));
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveUsers(users) {
+  fs.writeFileSync(userDataPath, JSON.stringify(users, null, 2));
+}
+
+let chatWindow;
+let videoWindow;
+let currentUser = null;
+let isAlwaysOnTop = true;
+let isDarkMode = true;
+
+const CHAT_WIDTH = 350;
+const CHAT_HEIGHT = 600;
+const VIDEO_WIDTH = 640;
+const VIDEO_HEIGHT = 400;
+
+const isDev = process.argv.includes('--dev');
+
+function createWelcomeWindow() {
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+
+  const centerX = Math.round((screenWidth - CHAT_WIDTH) / 2);
+  const centerY = Math.round((screenHeight - CHAT_HEIGHT) / 2);
+
+  chatWindow = new BrowserWindow({
+    width: CHAT_WIDTH,
+    height: CHAT_HEIGHT,
+    minWidth: 200,
+    minHeight: 300,
+    x: centerX,
+    y: centerY,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: true,
+    skipTaskbar: false,
+    backgroundColor: '#00000000',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      webviewTag: true,
+      preload: path.join(__dirname, 'preload.js')
+    }
+  });
+
+  if (isDev) {
+    chatWindow.webContents.openDevTools({ mode: 'detach' });
+  }
+
+  chatWindow.loadFile(path.join(__dirname, 'index.html'));
+
+  chatWindow.on('closed', () => {
+    chatWindow = null;
+    videoWindow = null;
+    currentUser = null;
+  });
+
+  console.log('[Twitch Chat Overlay] Window created');
+}
+
+function openStreams(user) {
+  if (videoWindow) {
+    videoWindow.close();
+  }
+
+  currentUser = user;
+
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+
+  const gap = 5;
+  const totalHeight = VIDEO_HEIGHT + gap + CHAT_HEIGHT;
+  let startY = Math.round((screenHeight - totalHeight) / 2);
+  if (startY < 0) startY = 10;
+  const centerX = Math.round((screenWidth - VIDEO_WIDTH) / 2);
+
+  let videoH = VIDEO_HEIGHT;
+  let chatH = CHAT_HEIGHT;
+  if (totalHeight > screenHeight) {
+    const availH = screenHeight - 20;
+    videoH = Math.round(availH * 0.55);
+    chatH = Math.round(availH * 0.45);
+    startY = 10;
+  }
+
+  videoWindow = new BrowserWindow({
+    width: VIDEO_WIDTH,
+    height: videoH,
+    minWidth: 320,
+    minHeight: 100,
+    x: centerX,
+    y: startY,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: true,
+    skipTaskbar: false,
+    backgroundColor: '#00000000',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      webviewTag: true,
+      preload: path.join(__dirname, 'preload.js')
+    }
+  });
+
+  if (isDev) {
+    videoWindow.webContents.openDevTools({ mode: 'detach' });
+  }
+
+  videoWindow.loadFile(path.join(__dirname, 'video.html'), {
+    query: { user }
+  });
+
+  videoWindow.on('closed', () => {
+    videoWindow = null;
+  });
+
+  const chatCenterX = Math.round((screenWidth - CHAT_WIDTH) / 2);
+  chatWindow.setPosition(chatCenterX, startY + videoH + gap);
+  chatWindow.setSize(CHAT_WIDTH, chatH);
+  chatWindow.webContents.send('streams-opened', user);
+  videoWindow.webContents.send('sync-theme', isDarkMode);
+
+  console.log(`[Twitch Chat Overlay] Opened streams for: ${user}`);
+}
+
+function closeStreams() {
+  if (videoWindow) {
+    videoWindow.close();
+    videoWindow = null;
+  }
+  currentUser = null;
+  if (chatWindow) {
+    chatWindow.webContents.send('streams-closed');
+  }
+}
+
+ipcMain.on('minimize-window', () => {
+  if (chatWindow) chatWindow.minimize();
+  if (videoWindow) videoWindow.minimize();
+});
+
+ipcMain.on('close-window', () => {
+  if (chatWindow) chatWindow.close();
+});
+
+ipcMain.on('toggle-always-on-top', () => {
+  isAlwaysOnTop = !isAlwaysOnTop;
+  if (chatWindow) {
+    chatWindow.setAlwaysOnTop(isAlwaysOnTop, 'screen-saver');
+    chatWindow.webContents.send('always-on-top-changed', isAlwaysOnTop);
+  }
+  if (videoWindow) {
+    videoWindow.setAlwaysOnTop(isAlwaysOnTop, 'screen-saver');
+    videoWindow.webContents.send('always-on-top-changed', isAlwaysOnTop);
+  }
+  console.log(`[Twitch Chat Overlay] Always on top: ${isAlwaysOnTop}`);
+});
+
+ipcMain.on('open-streams', (event, user) => {
+  openStreams(user);
+});
+
+ipcMain.on('close-streams', () => {
+  closeStreams();
+});
+
+ipcMain.on('toggle-theme', () => {
+  isDarkMode = !isDarkMode;
+  if (chatWindow) {
+    chatWindow.webContents.send('theme-changed', isDarkMode);
+  }
+  if (videoWindow) {
+    videoWindow.webContents.send('theme-changed', isDarkMode);
+  }
+  console.log(`[Twitch Chat Overlay] Dark mode: ${isDarkMode}`);
+});
+
+ipcMain.handle('get-users', () => {
+  return loadUsers();
+});
+
+ipcMain.handle('add-user', (event, userName) => {
+  const users = loadUsers();
+  const existing = users.find(u => u.name.toLowerCase() === userName.toLowerCase());
+  if (!existing) {
+    users.unshift({ name: userName, isFavorite: false });
+  }
+  saveUsers(users);
+  return users;
+});
+
+ipcMain.handle('remove-user', (event, userName) => {
+  let users = loadUsers();
+  users = users.filter(u => u.name.toLowerCase() !== userName.toLowerCase());
+  saveUsers(users);
+  return users;
+});
+
+ipcMain.handle('toggle-favorite', (event, userName) => {
+  const users = loadUsers();
+  const user = users.find(u => u.name.toLowerCase() === userName.toLowerCase());
+  if (user) {
+    user.isFavorite = !user.isFavorite;
+  }
+  saveUsers(users);
+  return users;
+});
+
+app.whenReady().then(() => {
+  createWelcomeWindow();
+
+  app.on('activate', () => {
+    if (!chatWindow) {
+      createWelcomeWindow();
+    }
+  });
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+process.on('uncaught-exception', (error) => {
+  console.error('[Twitch Chat Overlay] Uncaught exception:', error);
+});

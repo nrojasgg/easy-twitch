@@ -1,0 +1,195 @@
+<!doctype html>
+<html style="background: transparent">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+        <title>Stream</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            html, body {
+                background: transparent !important;
+                height: 100%;
+                overflow: hidden;
+            }
+
+            body {
+                display: flex;
+                flex-direction: column;
+            }
+
+            .drag-region {
+                -webkit-app-region: drag;
+                height: 32px;
+                background: rgba(80, 80, 80, 0.4);
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 8px;
+                flex-shrink: 0;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            }
+
+            .drag-region .title {
+                color: #cccccc;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                font-size: 12px;
+                font-weight: 600;
+                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+            }
+
+            .drag-region .controls {
+                display: flex;
+                gap: 8px;
+                -webkit-app-region: no-drag;
+            }
+
+            .drag-region button {
+                width: 22px;
+                height: 22px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: background 0.2s, transform 0.1s;
+            }
+
+            .drag-region button:active {
+                transform: scale(0.95);
+            }
+
+            .drag-region button:hover {
+                filter: brightness(1.2);
+            }
+
+            .drag-region .btn-close {
+                background: rgba(180, 60, 60, 0.7);
+                color: #ddd;
+            }
+
+            .drag-region .btn-close:hover {
+                background: rgba(220, 60, 60, 0.9);
+            }
+
+            .drag-region .btn-pin {
+                background: rgba(100, 100, 100, 0.6);
+                color: #888;
+            }
+
+            .drag-region .btn-pin.active {
+                background: rgba(255, 200, 0, 0.8);
+                color: #333;
+            }
+
+            .drag-region .btn-theme {
+                background: rgba(100, 100, 100, 0.6);
+                color: #888;
+            }
+
+            .drag-region .btn-theme.active {
+                background: rgba(255, 200, 0, 0.8);
+                color: #333;
+            }
+
+            .btn-pin svg, .btn-theme svg {
+                width: 12px;
+                height: 12px;
+                fill: currentColor;
+            }
+
+            .video-wrapper {
+                flex: 1;
+                position: relative;
+                overflow: hidden;
+            }
+
+            .video-wrapper webview {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                border: none;
+            }
+
+            .text-dark .title {
+                color: #222 !important;
+                text-shadow: none !important;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="drag-region" id="dragRegion">
+            <span class="title" id="title">Stream</span>
+            <div class="controls">
+                <button class="btn-pin active" id="pinBtn" title="Siempre visible">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M16 12V4h-2v4H8l4 8 4-8h-2V4h2v8z"/>
+                        <circle cx="12" cy="3" r="2"/>
+                    </svg>
+                </button>
+                <button class="btn-theme" id="themeBtn" title="Cambiar modo">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/>
+                    </svg>
+                </button>
+                <button class="btn-close" id="closeBtn" title="Close">×</button>
+            </div>
+        </div>
+        <div class="video-wrapper" id="videoWrapper">
+            <webview id="video" partition="persist:twitch-video" allowpopups></webview>
+        </div>
+
+        <script>
+            const video = document.getElementById("video");
+            const pinBtn = document.getElementById("pinBtn");
+            const themeBtn = document.getElementById("themeBtn");
+            const title = document.getElementById("title");
+            const dragRegion = document.getElementById("dragRegion");
+
+            const params = new URLSearchParams(window.location.search);
+            const user = params.get("user");
+
+            if (user) {
+                title.textContent = `Stream de ${user}`;
+                video.src = `https://player.twitch.tv/?channel=${user}&enableExtensions=true&muted=false&parent=twitch.tv&player=popout&quality=360p30&volume=1`;
+            }
+
+            pinBtn.addEventListener("click", () =>
+                window.electronAPI.togglePin(),
+            );
+
+            themeBtn.addEventListener("click", () =>
+                window.electronAPI.toggleTheme(),
+            );
+
+            document.getElementById("closeBtn").addEventListener("click", () =>
+                window.electronAPI.close(),
+            );
+
+            window.electronAPI.onPinChanged((isOnTop) => {
+                pinBtn.classList.toggle("active", isOnTop);
+            });
+
+            let currentIsDarkMode = true;
+
+            window.electronAPI.onThemeChanged((isDark) => {
+                currentIsDarkMode = isDark;
+                if (isDark) {
+                    themeBtn.classList.remove("active");
+                    dragRegion.classList.remove("text-dark");
+                } else {
+                    themeBtn.classList.add("active");
+                    dragRegion.classList.add("text-dark");
+                }
+            });
+        </script>
+    </body>
+</html>
