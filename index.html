@@ -151,6 +151,21 @@
                 color: #333;
             }
 
+            .drag-region .btn-minimize {
+                background: var(--btn-bg);
+                color: var(--text-secondary);
+            }
+
+            .drag-region .btn-minimize:hover {
+                filter: brightness(1.2);
+            }
+
+            .btn-minimize svg {
+                width: 12px;
+                height: 12px;
+                fill: currentColor;
+            }
+
             .btn-contrast svg {
                 width: 12px;
                 height: 12px;
@@ -419,6 +434,11 @@
                         <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/>
                     </svg>
                 </button>
+                <button class="btn-minimize" id="minimizeBtn" title="Minimizar">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M19 13H5v-2h14v2z"/>
+                    </svg>
+                </button>
                 <button class="btn-close" id="closeBtn" title="Close">×</button>
             </div>
         </div>
@@ -443,6 +463,7 @@
             const closeBtn = document.getElementById("closeBtn");
             const backBtn = document.getElementById("backBtn");
             const themeBtn = document.getElementById("themeBtn");
+            const minimizeBtn = document.getElementById("minimizeBtn");
             const title = document.getElementById("title");
             const welcomeScreen = document.getElementById("welcomeScreen");
             const chatWrapper = document.getElementById("chatWrapper");
@@ -623,6 +644,10 @@
 
             closeBtn.addEventListener("click", () =>
                 window.electronAPI.close(),
+            );
+
+            minimizeBtn.addEventListener("click", () =>
+                window.electronAPI.minimize(),
             );
             backBtn.addEventListener("click", () => {
                 showWelcome();

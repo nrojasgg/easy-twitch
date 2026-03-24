@@ -98,11 +98,13 @@ function openStreams(user) {
     startY = 10;
   }
 
+  const videoAspectRatio = 16 / 9;
+
   videoWindow = new BrowserWindow({
     width: VIDEO_WIDTH,
     height: videoH,
     minWidth: 320,
-    minHeight: 100,
+    minHeight: Math.round(320 * 9 / 16),
     x: centerX,
     y: startY,
     transparent: true,
@@ -117,6 +119,23 @@ function openStreams(user) {
       webviewTag: true,
       preload: path.join(__dirname, 'preload.js')
     }
+  });
+
+  const topbarHeight = 32;
+  let resizingTimeout;
+  videoWindow.on('resize', () => {
+    clearTimeout(resizingTimeout);
+    resizingTimeout = setTimeout(() => {
+      const [width, height] = videoWindow.getSize();
+      const videoHeight = height - topbarHeight;
+      const fromWidth = Math.round(videoHeight * videoAspectRatio);
+      const fromHeight = Math.round(width / videoAspectRatio) + topbarHeight;
+      if (Math.abs(height - fromHeight) > Math.abs(width - fromWidth)) {
+        videoWindow.setSize(width, fromHeight);
+      } else {
+        videoWindow.setSize(fromWidth, height);
+      }
+    }, 10);
   });
 
   if (isDev) {
@@ -151,25 +170,29 @@ function closeStreams() {
   }
 }
 
-ipcMain.on('minimize-window', () => {
-  if (chatWindow) chatWindow.minimize();
-  if (videoWindow) videoWindow.minimize();
+ipcMain.on('minimize-window', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) win.minimize();
 });
 
-ipcMain.on('close-window', () => {
-  if (chatWindow) chatWindow.close();
+ipcMain.on('close-window', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win === chatWindow) {
+    chatWindow.close();
+  } else if (win === videoWindow) {
+    videoWindow.close();
+  }
 });
 
-ipcMain.on('toggle-always-on-top', () => {
+ipcMain.on('toggle-always-on-top', (event) => {
   isAlwaysOnTop = !isAlwaysOnTop;
   if (chatWindow) {
     chatWindow.setAlwaysOnTop(isAlwaysOnTop, 'screen-saver');
-    chatWindow.webContents.send('always-on-top-changed', isAlwaysOnTop);
   }
   if (videoWindow) {
     videoWindow.setAlwaysOnTop(isAlwaysOnTop, 'screen-saver');
-    videoWindow.webContents.send('always-on-top-changed', isAlwaysOnTop);
   }
+  event.sender.send('always-on-top-changed', isAlwaysOnTop);
   console.log(`[Twitch Chat Overlay] Always on top: ${isAlwaysOnTop}`);
 });
 
@@ -181,7 +204,7 @@ ipcMain.on('close-streams', () => {
   closeStreams();
 });
 
-ipcMain.on('toggle-theme', () => {
+ipcMain.on('toggle-theme', (event) => {
   isDarkMode = !isDarkMode;
   if (chatWindow) {
     chatWindow.webContents.send('theme-changed', isDarkMode);
@@ -189,6 +212,7 @@ ipcMain.on('toggle-theme', () => {
   if (videoWindow) {
     videoWindow.webContents.send('theme-changed', isDarkMode);
   }
+  event.sender.send('theme-changed', isDarkMode);
   console.log(`[Twitch Chat Overlay] Dark mode: ${isDarkMode}`);
 });
 
