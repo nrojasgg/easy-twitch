@@ -1,0 +1,330 @@
+<!doctype html>
+<html style="background: transparent">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+        <title>Twitch Chat Overlay</title>
+        <style>
+            :root {
+                --bg-primary: rgba(80, 80, 80, 0.4);
+                --bg-secondary: rgba(60, 60, 60, 0.5);
+                --bg-tertiary: rgba(60, 60, 60, 0.9);
+                --text-primary: #cccccc;
+                --text-secondary: #888;
+                --border-color: rgba(255, 255, 255, 0.1);
+                --btn-bg: rgba(100, 100, 100, 0.6);
+                --btn-close-bg: rgba(180, 60, 60, 0.7);
+                --btn-close-hover: rgba(220, 60, 60, 0.9);
+                --btn-pin-active-bg: rgba(255, 200, 0, 0.8);
+            }
+
+            :root.light {
+                --bg-primary: rgba(200, 200, 200, 0.4);
+                --bg-secondary: rgba(180, 180, 180, 0.5);
+                --bg-tertiary: rgba(180, 180, 180, 0.9);
+                --text-primary: #333333;
+                --text-secondary: #666;
+                --border-color: rgba(0, 0, 0, 0.1);
+                --btn-bg: rgba(150, 150, 150, 0.6);
+                --btn-close-bg: rgba(180, 60, 60, 0.7);
+                --btn-close-hover: rgba(220, 60, 60, 0.9);
+                --btn-pin-active-bg: rgba(255, 200, 0, 0.8);
+            }
+
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            html,
+            body {
+                background: transparent !important;
+                height: 100%;
+                overflow: hidden;
+            }
+
+            body {
+                display: flex;
+                flex-direction: column;
+            }
+
+            .drag-region {
+                -webkit-app-region: drag;
+                height: 32px;
+                background: var(--bg-primary);
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 8px;
+                flex-shrink: 0;
+                border-bottom: 1px solid var(--border-color);
+            }
+
+            .drag-region .title {
+                position: absolute;
+                left: 50%;
+                transform: translateX(-50%);
+                color: var(--text-primary);
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                font-size: 12px;
+                font-weight: 600;
+                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+                white-space: nowrap;
+            }
+
+            .drag-region .controls {
+                display: flex;
+                gap: 8px;
+                -webkit-app-region: no-drag;
+            }
+
+            .drag-region button {
+                width: 22px;
+                height: 22px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: background 0.2s, transform 0.1s;
+                -webkit-app-region: no-drag;
+            }
+
+            .drag-region button:active {
+                transform: scale(0.95);
+            }
+
+            .drag-region button:hover {
+                filter: brightness(1.2);
+            }
+
+            .drag-region .btn-close {
+                background: var(--btn-close-bg);
+                color: #ddd;
+            }
+
+            .drag-region .btn-close:hover {
+                background: var(--btn-close-hover);
+            }
+
+            .drag-region .btn-minimize {
+                background: var(--btn-bg);
+                color: var(--text-secondary);
+            }
+
+            .drag-region .btn-minimize:hover {
+                filter: brightness(1.2);
+            }
+
+            .btn-minimize svg {
+                width: 12px;
+                height: 12px;
+                fill: currentColor;
+            }
+
+            .drag-region .btn-pin {
+                background: var(--btn-bg);
+                color: var(--text-secondary);
+            }
+
+            .drag-region .btn-pin.active {
+                background: var(--btn-pin-active-bg);
+                color: #333;
+            }
+
+            .drag-region .btn-theme {
+                background: var(--btn-bg);
+                color: var(--text-secondary);
+            }
+
+            .drag-region .btn-theme.active {
+                background: var(--btn-pin-active-bg);
+                color: #333;
+            }
+
+            .btn-theme svg {
+                width: 12px;
+                height: 12px;
+                fill: currentColor;
+            }
+
+            .drag-region .btn-back {
+                background: rgba(100, 100, 100, 0.6);
+                color: #ccc;
+                margin-right: 6px;
+            }
+
+            .drag-region .btn-back svg {
+                width: 14px;
+                height: 14px;
+                fill: currentColor;
+            }
+
+            .btn-pin svg {
+                width: 12px;
+                height: 12px;
+                fill: currentColor;
+            }
+
+            .chat-wrapper {
+                flex: 1;
+                position: relative;
+                overflow: hidden;
+                clip-path: inset(0px 0 0 0);
+                background: transparent;
+            }
+
+            .chat-wrapper webview {
+                position: absolute;
+                top: -45px;
+                left: 0;
+                width: 100%;
+                height: calc(100% + 45px);
+                border: none;
+                background: transparent;
+            }
+
+            .hidden {
+                display: none !important;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="drag-region" id="dragRegion">
+            <button class="btn-back" id="backBtn" title="Volver">
+                <svg viewBox="0 0 24 24">
+                    <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+                </svg>
+            </button>
+            <span class="title" id="title">Twitch Chat Overlay</span>
+            <div class="controls">
+                <button class="btn-minimize" id="minimizeBtn" title="Minimizar">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M19 13H5v-2h14v2z"/>
+                    </svg>
+                </button>
+                <button class="btn-pin active" id="pinBtn" title="Fijar">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M16 12V4h-2v4H8l4 8 4-8h-2V4h2v8z"/>
+                        <circle cx="12" cy="3" r="2"/>
+                    </svg>
+                </button>
+                <button class="btn-theme" id="themeBtn" title="Cambiar modo">
+                    <svg class="icon-theme" viewBox="0 0 24 24">
+                        <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/>
+                    </svg>
+                </button>
+                <button class="btn-close" id="closeBtn" title="Cerrar">×</button>
+            </div>
+        </div>
+        <div class="chat-wrapper" id="chatWrapper">
+            <webview
+                id="chat"
+                partition="persist:twitch-chat"
+                allowpopups
+            ></webview>
+        </div>
+
+        <script>
+            const webview = document.getElementById("chat");
+            const pinBtn = document.getElementById("pinBtn");
+            const closeBtn = document.getElementById("closeBtn");
+            const backBtn = document.getElementById("backBtn");
+            const minimizeBtn = document.getElementById("minimizeBtn");
+            const themeBtn = document.getElementById("themeBtn");
+            const title = document.getElementById("title");
+
+            const params = new URLSearchParams(window.location.search);
+            const user = params.get("user");
+
+            if (user) {
+                title.textContent = `Chat de ${user}`;
+                webview.src = `https://www.twitch.tv/popout/${user}/chat?display_version=2`;
+            }
+
+            pinBtn.addEventListener("click", () =>
+                window.electronAPI.togglePin(),
+            );
+
+            closeBtn.addEventListener("click", () =>
+                window.electronAPI.close(),
+            );
+
+            minimizeBtn.addEventListener("click", () =>
+                window.electronAPI.minimize(),
+            );
+
+            let currentIsDarkMode = true;
+
+            themeBtn.addEventListener("click", () => {
+                window.electronAPI.toggleTheme();
+            });
+
+            window.electronAPI.onThemeChanged((isDark) => {
+                currentIsDarkMode = isDark;
+                injectTextColor();
+            });
+
+            function injectTextColor() {
+                const textColor = currentIsDarkMode ? "#ffffff" : "#000000";
+                const shadow = currentIsDarkMode
+                    ? "0 0 2px rgba(0, 0, 0, 0.95), 0 0 4px rgba(0, 0, 0, 0.8), 1px 1px 2px rgba(0, 0, 0, 0.9)"
+                    : "0 0 2px rgba(255, 255, 255, 0.5), 0 0 4px rgba(255, 255, 255, 0.3)";
+                webview.insertCSS(`
+                    .chat-message__content,
+                    .chat-line__message-body,
+                    .chat-line__username,
+                    .chat-line__message {
+                        color: ${textColor} !important;
+                        text-shadow: ${shadow} !important;
+                    }
+                `).catch(() => {});
+            }
+
+            backBtn.addEventListener("click", () => {
+                window.electronAPI.closeStreams();
+            });
+
+            window.electronAPI.onPinChanged((isOnTop) => {
+                pinBtn.classList.toggle("active", isOnTop);
+                const icon = pinBtn.querySelector("svg");
+                if (isOnTop) {
+                    icon.innerHTML = `
+                        <path d="M16 12V4h-2v4H8l4 8 4-8h-2V4h2v8z"/>
+                        <circle cx="12" cy="3" r="2"/>
+                    `;
+                } else {
+                    icon.innerHTML = `
+                        <path d="M12 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM8 6h8l3 6-3 6H8l-3-6z" fill="none" stroke="currentColor" stroke-width="2"/>
+                    `;
+                }
+            });
+
+            webview.addEventListener("did-stop-loading", () => {
+                const makeTransparent = () => {
+                    webview.insertCSS(`
+                        html, body, body * {
+                            background: transparent !important;
+                            background-color: transparent !important;
+                            background-image: none !important;
+                        }
+                        div, section, article, main, aside {
+                            background: transparent !important;
+                            background-color: transparent !important;
+                        }
+                    `).catch(() => {});
+                };
+                makeTransparent();
+                injectTextColor();
+                setTimeout(makeTransparent, 500);
+                setTimeout(makeTransparent, 1500);
+                setTimeout(makeTransparent, 3000);
+                setInterval(makeTransparent, 1000);
+                setInterval(injectTextColor, 2000);
+            });
+        </script>
+    </body>
+</html>

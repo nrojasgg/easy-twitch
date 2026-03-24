@@ -216,6 +216,7 @@
                 position: relative;
                 overflow: hidden;
                 clip-path: inset(0px 0 0 0);
+                background: transparent;
             }
 
             .chat-wrapper webview {
@@ -225,6 +226,7 @@
                 width: 100%;
                 height: calc(100% + 45px);
                 border: none;
+                background: transparent;
             }
 
             .welcome-screen {
@@ -667,121 +669,13 @@
                 }
             });
 
-            webview.addEventListener("did-finish-load", () => {
-                injectChatTheme();
-
-                const bttvScript = `
-                    (function() {
-                        if (window.BTTV_CHAT_LOADED) return;
-                        window.BTTV_CHAT_LOADED = true;
-                        var s = document.createElement('script');
-                        s.src = 'https://cdn.betterttv.net/script/script.min.js';
-                        document.head.appendChild(s);
-                    })();
-                `;
-
-                const ffzScript = `
-                    (function() {
-                        if (window.FFZ_CHAT_LOADED) return;
-                        window.FFZ_CHAT_LOADED = true;
-                        var s = document.createElement('script');
-                        s.src = 'https://cdn.frankerfacez.com/script/script.min.js';
-                        document.head.appendChild(s);
-                    })();
-                `;
-
-                webview.executeJavaScript(bttvScript);
-                webview.executeJavaScript(ffzScript);
-
+            webview.addEventListener("did-stop-loading", () => {
                 webview.insertCSS(`
-        html, body {
-          background: transparent !important;
-        }
-
-        .chat-room,
-        .tw-root--theme-dark,
-        .chat-container,
-        .chat-page,
-        .stream-chat-root,
-        .chat-layout,
-        .chat-room__container,
-        .persistent-room-content,
-        [data-a-target="chat-scroller"],
-        .scrollable-trigger,
-        .chat-scroller,
-        .chat-scroller__message-container,
-        .chat-message-list,
-        .chat-message-list--default,
-        .chat-message,
-        .chat-line__message,
-        .chat-line__no-state,
-        .chat-line__status,
-        .chat-line__highlight,
-        .chat-line__message--action,
-        .chat-message__content,
-        .chat-line__message-body,
-        .chat-line__username,
-        .chat-badge,
-        .chat-badge-group,
-        .chat-line__badges,
-        .ember-chat .chat-container,
-        .chat-content,
-        .chat-line__message--deleted,
-        .chat-header,
-        .chat-room__header,
-        [data-a-target="chat-header"],
-        .stream-chat-header {
-          background: transparent !important;
-        }
-
-        .chat-room__header,
-        .stream-chat-header {
-          display: none !important;
-        }
-
-        .chat-message__content,
-        .chat-line__message-body,
-        .chat-line__username {
-          background: transparent !important;
-          text-shadow:
-            0 0 2px rgba(0, 0, 0, 0.95),
-            0 0 4px rgba(0, 0, 0, 0.8),
-            1px 1px 2px rgba(0, 0, 0, 0.9) !important;
-        }
-
-        * {
-          background-color: transparent !important;
-          border-color: rgba(255, 255, 255, 0.05) !important;
-        }
-
-        ::-webkit-scrollbar,
-        .scrollbar-drive,
-        .simplebar-scrollbar {
-          display: none !important;
-        }
-
-        .bttv-emote,
-        .ffz-emote,
-        .seventv-emote,
-        [data-a-target="emote-item"] {
-          background: transparent !important;
-        }
-      `);
-
-                webview.executeJavaScript(`
-        (function() {
-          const observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-              mutation.addedNodes.forEach((node) => {
-                if (node.nodeType === 1 && node.style) {
-                  node.style.background = 'transparent';
-                }
-              });
-            });
-          });
-          observer.observe(document.body, { childList: true, subtree: true });
-        })();
-      `);
+                    html, body {
+                        background: transparent !important;
+                        background-color: transparent !important;
+                    }
+                `);
             });
         </script>
     </body>

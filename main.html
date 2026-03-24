@@ -1,0 +1,403 @@
+<!doctype html>
+<html style="background: transparent">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+        <title>Twitch Chat Overlay</title>
+        <style>
+            :root {
+                --bg-primary: rgba(80, 80, 80, 0.4);
+                --bg-secondary: rgba(60, 60, 60, 0.5);
+                --bg-tertiary: rgba(60, 60, 60, 0.9);
+                --text-primary: #cccccc;
+                --text-secondary: #888;
+                --border-color: rgba(255, 255, 255, 0.1);
+                --btn-bg: rgba(100, 100, 100, 0.6);
+                --btn-close-bg: rgba(180, 60, 60, 0.7);
+                --btn-close-hover: rgba(220, 60, 60, 0.9);
+                --btn-pin-active-bg: rgba(255, 200, 0, 0.8);
+                --input-bg: rgba(60, 60, 60, 0.9);
+                --input-border: rgba(100, 100, 100, 0.5);
+                --welcome-bg: rgba(30, 30, 30, 0.95);
+                --user-item-bg: rgba(60, 60, 60, 0.5);
+                --user-item-hover: rgba(80, 80, 80, 0.6);
+            }
+
+            :root.light {
+                --bg-primary: rgba(200, 200, 200, 0.4);
+                --bg-secondary: rgba(180, 180, 180, 0.5);
+                --bg-tertiary: rgba(180, 180, 180, 0.9);
+                --text-primary: #333333;
+                --text-secondary: #666;
+                --border-color: rgba(0, 0, 0, 0.1);
+                --btn-bg: rgba(150, 150, 150, 0.6);
+                --btn-close-bg: rgba(180, 60, 60, 0.7);
+                --btn-close-hover: rgba(220, 60, 60, 0.9);
+                --btn-pin-active-bg: rgba(255, 200, 0, 0.8);
+                --input-bg: rgba(220, 220, 220, 0.9);
+                --input-border: rgba(100, 100, 100, 0.5);
+                --welcome-bg: rgba(220, 220, 220, 0.95);
+                --user-item-bg: rgba(200, 200, 200, 0.5);
+                --user-item-hover: rgba(180, 180, 180, 0.7);
+            }
+
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            html,
+            body {
+                background: transparent !important;
+                height: 100%;
+                overflow: hidden;
+            }
+
+            body {
+                display: flex;
+                flex-direction: column;
+            }
+
+            .drag-region {
+                -webkit-app-region: drag;
+                height: 32px;
+                background: var(--bg-primary);
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 8px;
+                flex-shrink: 0;
+                border-bottom: 1px solid var(--border-color);
+            }
+
+            .drag-region .title {
+                color: var(--text-primary);
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    sans-serif;
+                font-size: 12px;
+                font-weight: 600;
+                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+            }
+
+            :root.light .drag-region .title {
+                text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+            }
+
+            .drag-region .controls {
+                display: flex;
+                gap: 8px;
+                -webkit-app-region: no-drag;
+            }
+
+            .drag-region button {
+                width: 22px;
+                height: 22px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: background 0.2s, transform 0.1s;
+            }
+
+            .drag-region button:active {
+                transform: scale(0.95);
+            }
+
+            .drag-region button:hover {
+                filter: brightness(1.2);
+            }
+
+            .drag-region .btn-close {
+                background: var(--btn-close-bg);
+                color: #ddd;
+            }
+
+            .drag-region .btn-close:hover {
+                background: var(--btn-close-hover);
+            }
+
+            .drag-region .btn-minimize {
+                background: var(--btn-bg);
+                color: var(--text-secondary);
+            }
+
+            .drag-region .btn-minimize:hover {
+                filter: brightness(1.2);
+            }
+
+            .btn-minimize svg {
+                width: 12px;
+                height: 12px;
+                fill: currentColor;
+            }
+
+            .welcome-screen {
+                display: flex;
+                flex-direction: column;
+                height: calc(100% - 32px);
+                padding: 15px;
+                gap: 10px;
+                background: var(--welcome-bg);
+            }
+
+            .welcome-input-row {
+                display: flex;
+                flex-direction: row;
+                gap: 8px;
+                justify-content: center;
+            }
+
+            .welcome-screen input {
+                background: var(--input-bg);
+                border: 1px solid var(--input-border);
+                border-radius: 6px;
+                padding: 10px 14px;
+                color: var(--text-primary);
+                font-size: 14px;
+                width: 200px;
+                outline: none;
+                transition: border-color 0.2s;
+            }
+
+            .welcome-screen input:focus {
+                border-color: var(--btn-pin-active-bg);
+            }
+
+            .welcome-screen input::placeholder {
+                color: var(--text-secondary);
+            }
+
+            .btn-go {
+                background: var(--btn-bg);
+                border: none;
+                border-radius: 6px;
+                width: 40px;
+                cursor: pointer;
+                color: var(--text-primary);
+                font-size: 16px;
+                transition: background 0.2s;
+            }
+
+            .btn-go:hover {
+                filter: brightness(1.2);
+            }
+
+            .user-section-title {
+                color: var(--text-secondary);
+                font-size: 11px;
+                font-weight: 600;
+                text-transform: uppercase;
+                margin-top: 8px;
+                padding-left: 4px;
+            }
+
+            .user-list {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                overflow-y: auto;
+            }
+
+            .user-item {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 8px 10px;
+                background: var(--user-item-bg);
+                border-radius: 6px;
+                cursor: pointer;
+                transition: background 0.2s;
+            }
+
+            .user-item:hover {
+                background: var(--user-item-hover);
+            }
+
+            .btn-fav {
+                background: none;
+                border: none;
+                color: var(--text-secondary);
+                cursor: pointer;
+                font-size: 14px;
+                padding: 0;
+                width: 20px;
+                height: 20px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .btn-fav.active {
+                color: #ffcc00;
+            }
+
+            .user-name {
+                flex: 1;
+                color: var(--text-primary);
+                font-size: 13px;
+            }
+
+            .btn-remove {
+                background: none;
+                border: none;
+                color: var(--text-secondary);
+                cursor: pointer;
+                font-size: 14px;
+                padding: 0;
+                width: 20px;
+                height: 20px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                opacity: 0;
+                transition: opacity 0.2s;
+            }
+
+            .user-item:hover .btn-remove {
+                opacity: 1;
+            }
+
+            .btn-remove:hover {
+                color: var(--btn-close-hover);
+            }
+
+            .hidden {
+                display: none !important;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="drag-region" id="dragRegion">
+            <span class="title" id="title">Twitch Chat Overlay</span>
+            <div class="controls">
+                <button class="btn-minimize" id="minimizeBtn" title="Minimizar">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M19 13H5v-2h14v2z"/>
+                    </svg>
+                </button>
+                <button class="btn-close" id="closeBtn" title="Close">×</button>
+            </div>
+        </div>
+        <div class="welcome-screen" id="welcomeScreen">
+            <div class="welcome-input-row">
+                <input type="text" id="userInput" placeholder="Escribe el usuario" autocomplete="off" autofocus/>
+                <button class="btn-go" id="startBtn">→</button>
+            </div>
+            <div class="user-list" id="userList"></div>
+        </div>
+
+        <script>
+            const closeBtn = document.getElementById("closeBtn");
+            const minimizeBtn = document.getElementById("minimizeBtn");
+            const title = document.getElementById("title");
+            const welcomeScreen = document.getElementById("welcomeScreen");
+            const dragRegion = document.getElementById("dragRegion");
+            const userInput = document.getElementById("userInput");
+            const startBtn = document.getElementById("startBtn");
+            const userList = document.getElementById("userList");
+
+            async function renderUserList() {
+                const users = await window.electronAPI.getUsers();
+                userList.innerHTML = "";
+
+                const favorites = users.filter(u => u.isFavorite);
+                const recent = users.filter(u => !u.isFavorite);
+
+                if (favorites.length > 0) {
+                    const favTitle = document.createElement("div");
+                    favTitle.className = "user-section-title";
+                    favTitle.textContent = "Favoritos";
+                    userList.appendChild(favTitle);
+
+                    favorites.forEach(user => {
+                        userList.appendChild(createUserItem(user));
+                    });
+                }
+
+                if (recent.length > 0) {
+                    const recentTitle = document.createElement("div");
+                    recentTitle.className = "user-section-title";
+                    recentTitle.textContent = "Recientes";
+                    userList.appendChild(recentTitle);
+
+                    recent.forEach(user => {
+                        userList.appendChild(createUserItem(user));
+                    });
+                }
+            }
+
+            function createUserItem(user) {
+                const item = document.createElement("div");
+                item.className = "user-item";
+                item.innerHTML = `
+                    <button class="btn-fav ${user.isFavorite ? 'active' : ''}" title="${user.isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}">★</button>
+                    <span class="user-name">${user.name}</span>
+                    <button class="btn-remove" title="Eliminar">×</button>
+                `;
+
+                item.querySelector(".btn-fav").addEventListener("click", async (e) => {
+                    e.stopPropagation();
+                    await window.electronAPI.toggleFavorite(user.name);
+                    renderUserList();
+                });
+
+                item.querySelector(".user-name").addEventListener("click", () => {
+                    loadChat(user.name);
+                });
+
+                item.querySelector(".btn-remove").addEventListener("click", async (e) => {
+                    e.stopPropagation();
+                    await window.electronAPI.removeUser(user.name);
+                    renderUserList();
+                });
+
+                return item;
+            }
+
+            async function loadChat(user) {
+                await window.electronAPI.addUser(user);
+                window.electronAPI.openStreams(user);
+            }
+
+            closeBtn.addEventListener("click", () =>
+                window.electronAPI.close(),
+            );
+
+            minimizeBtn.addEventListener("click", () =>
+                window.electronAPI.minimize(),
+            );
+
+            startBtn.addEventListener("click", () => {
+                const user = userInput.value.trim();
+                if (user) {
+                    loadChat(user);
+                }
+            });
+
+            userInput.addEventListener("keypress", (e) => {
+                if (e.key === "Enter") {
+                    const user = userInput.value.trim();
+                    if (user) {
+                        loadChat(user);
+                    }
+                }
+            });
+
+            window.electronAPI.onPinChanged((isOnTop) => {
+            });
+
+            window.electronAPI.onThemeChanged((isDark) => {
+                document.documentElement.classList.toggle("light", !isDark);
+            });
+
+            window.addEventListener("DOMContentLoaded", () => {
+                renderUserList();
+            });
+        </script>
+    </body>
+</html>

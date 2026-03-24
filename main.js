@@ -17,6 +17,7 @@ function saveUsers(users) {
   fs.writeFileSync(userDataPath, JSON.stringify(users, null, 2));
 }
 
+let mainWindow;
 let chatWindow;
 let videoWindow;
 let currentUser = null;
@@ -30,14 +31,14 @@ const VIDEO_HEIGHT = 400;
 
 const isDev = process.argv.includes('--dev');
 
-function createWelcomeWindow() {
+function createMainWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
 
   const centerX = Math.round((screenWidth - CHAT_WIDTH) / 2);
   const centerY = Math.round((screenHeight - CHAT_HEIGHT) / 2);
 
-  chatWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: CHAT_WIDTH,
     height: CHAT_HEIGHT,
     minWidth: 200,
@@ -59,23 +60,84 @@ function createWelcomeWindow() {
   });
 
   if (isDev) {
-    chatWindow.webContents.openDevTools({ mode: 'detach' });
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
   }
 
-  chatWindow.loadFile(path.join(__dirname, 'index.html'));
+  mainWindow.loadFile(path.join(__dirname, 'main.html'));
 
-  chatWindow.on('closed', () => {
+  mainWindow.on('closed', () => {
+    mainWindow = null;
     chatWindow = null;
     videoWindow = null;
     currentUser = null;
   });
 
-  console.log('[Twitch Chat Overlay] Window created');
+  console.log('[Twitch Chat Overlay] Main window created');
+}
+
+function createChatWindow(user) {
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+
+  const gap = 5;
+  const totalHeight = VIDEO_HEIGHT + gap + CHAT_HEIGHT;
+  let startY = Math.round((screenHeight - totalHeight) / 2);
+  if (startY < 0) startY = 10;
+  const centerX = Math.round((screenWidth - VIDEO_WIDTH) / 2);
+
+  let videoH = VIDEO_HEIGHT;
+  let chatH = CHAT_HEIGHT;
+  if (totalHeight > screenHeight) {
+    const availH = screenHeight - 20;
+    videoH = Math.round(availH * 0.55);
+    chatH = Math.round(availH * 0.45);
+    startY = 10;
+  }
+
+  chatWindow = new BrowserWindow({
+    width: CHAT_WIDTH,
+    height: chatH,
+    x: centerX + VIDEO_WIDTH + gap,
+    y: startY,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: true,
+    skipTaskbar: false,
+    backgroundColor: '#00000000',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      webviewTag: true,
+      preload: path.join(__dirname, 'preload.js')
+    }
+  });
+
+  if (isDev) {
+    chatWindow.webContents.openDevTools({ mode: 'detach' });
+  }
+
+  chatWindow.loadFile(path.join(__dirname, 'chat.html'), {
+    query: { user }
+  });
+
+  chatWindow.webContents.on('did-finish-load', () => {
+    chatWindow.webContents.send('always-on-top-changed', isAlwaysOnTop);
+  });
+
+  chatWindow.on('closed', () => {
+    chatWindow = null;
+  });
+
+  return { startY, chatH };
 }
 
 function openStreams(user) {
   if (videoWindow) {
     videoWindow.close();
+  }
+  if (chatWindow) {
+    chatWindow.close();
   }
 
   currentUser = user;
@@ -99,6 +161,8 @@ function openStreams(user) {
   }
 
   const videoAspectRatio = 16 / 9;
+
+  const { startY: chatStartY, chatH: chatHeight } = createChatWindow(user);
 
   videoWindow = new BrowserWindow({
     width: VIDEO_WIDTH,
@@ -150,11 +214,11 @@ function openStreams(user) {
     videoWindow = null;
   });
 
-  const chatCenterX = Math.round((screenWidth - CHAT_WIDTH) / 2);
-  chatWindow.setPosition(chatCenterX, startY + videoH + gap);
-  chatWindow.setSize(CHAT_WIDTH, chatH);
-  chatWindow.webContents.send('streams-opened', user);
   videoWindow.webContents.send('sync-theme', isDarkMode);
+
+  if (mainWindow) {
+    mainWindow.hide();
+  }
 
   console.log(`[Twitch Chat Overlay] Opened streams for: ${user}`);
 }
@@ -164,9 +228,13 @@ function closeStreams() {
     videoWindow.close();
     videoWindow = null;
   }
-  currentUser = null;
   if (chatWindow) {
-    chatWindow.webContents.send('streams-closed');
+    chatWindow.close();
+    chatWindow = null;
+  }
+  currentUser = null;
+  if (mainWindow) {
+    mainWindow.show();
   }
 }
 
@@ -177,7 +245,9 @@ ipcMain.on('minimize-window', (event) => {
 
 ipcMain.on('close-window', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
-  if (win === chatWindow) {
+  if (win === mainWindow) {
+    mainWindow.close();
+  } else if (win === chatWindow) {
     chatWindow.close();
   } else if (win === videoWindow) {
     videoWindow.close();
@@ -186,6 +256,9 @@ ipcMain.on('close-window', (event) => {
 
 ipcMain.on('toggle-always-on-top', (event) => {
   isAlwaysOnTop = !isAlwaysOnTop;
+  if (mainWindow) {
+    mainWindow.setAlwaysOnTop(isAlwaysOnTop, 'screen-saver');
+  }
   if (chatWindow) {
     chatWindow.setAlwaysOnTop(isAlwaysOnTop, 'screen-saver');
   }
@@ -248,11 +321,11 @@ ipcMain.handle('toggle-favorite', (event, userName) => {
 });
 
 app.whenReady().then(() => {
-  createWelcomeWindow();
+  createMainWindow();
 
   app.on('activate', () => {
-    if (!chatWindow) {
-      createWelcomeWindow();
+    if (!mainWindow) {
+      createMainWindow();
     }
   });
 });
