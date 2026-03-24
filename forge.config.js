@@ -1,15 +1,15 @@
 module.exports = {
   packagerConfig: {
     asar: true,
-    name: 'ConfortTwitch',
-    executableName: 'ConfortTwitch',
+    name: 'EasyTwitch',
+    executableName: 'EasyTwitch',
   },
   rebuildConfig: {},
   makers: [
     {
       name: '@electron-forge/maker-squirrel',
       config: {
-        name: 'ConfortTwitch',
+        name: 'EasyTwitch',
       },
     },
   ],

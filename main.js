@@ -72,7 +72,7 @@ function createMainWindow() {
     currentUser = null;
   });
 
-  console.log('[Twitch Chat Overlay] Main window created');
+  console.log('[Easy Twitch] Main window created');
 }
 
 function createChatWindow(user) {
@@ -220,7 +220,7 @@ function openStreams(user) {
     mainWindow.hide();
   }
 
-  console.log(`[Twitch Chat Overlay] Opened streams for: ${user}`);
+  console.log(`[Easy Twitch] Opened streams for: ${user}`);
 }
 
 function closeStreams() {
@@ -266,7 +266,7 @@ ipcMain.on('toggle-always-on-top', (event) => {
     videoWindow.setAlwaysOnTop(isAlwaysOnTop, 'screen-saver');
   }
   event.sender.send('always-on-top-changed', isAlwaysOnTop);
-  console.log(`[Twitch Chat Overlay] Always on top: ${isAlwaysOnTop}`);
+  console.log(`[Easy Twitch] Always on top: ${isAlwaysOnTop}`);
 });
 
 ipcMain.on('open-streams', (event, user) => {
@@ -286,7 +286,7 @@ ipcMain.on('toggle-theme', (event) => {
     videoWindow.webContents.send('theme-changed', isDarkMode);
   }
   event.sender.send('theme-changed', isDarkMode);
-  console.log(`[Twitch Chat Overlay] Dark mode: ${isDarkMode}`);
+  console.log(`[Easy Twitch] Dark mode: ${isDarkMode}`);
 });
 
 ipcMain.handle('get-users', () => {
@@ -337,5 +337,5 @@ app.on('window-all-closed', () => {
 });
 
 process.on('uncaught-exception', (error) => {
-  console.error('[Twitch Chat Overlay] Uncaught exception:', error);
+  console.error('[Easy Twitch] Uncaught exception:', error);
 });

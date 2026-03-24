@@ -1,8 +1,8 @@
 {
-  "name": "confort-twitch",
-  "productName": "Confort Twitch",
+  "name": "easy-twitch",
+  "productName": "Easy Twitch",
   "version": "1.0.0",
-  "description": "Transparent overlay for Twitch chat",
+  "description": "Overlay for Twitch chat",
   "main": "main.js",
   "private": true,
   "scripts": {
@@ -25,7 +25,11 @@
   },
   "build": {
     "win": {
-      "target": "portable"
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
     }
   }
 }
